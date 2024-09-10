@@ -1,5 +1,6 @@
 package com.ecocow.movie_api.movie.service;
 
+import com.ecocow.movie_api.common.response.ResponseMessage;
 import com.ecocow.movie_api.movie.entity.MovieEntity;
 import com.ecocow.movie_api.movie.entity.MovieGenreEntity;
 import com.ecocow.movie_api.movie.repository.MovieDTO;
@@ -8,8 +9,12 @@ import com.ecocow.movie_api.movie.repository.MovieGenreRepository;
 import com.ecocow.movie_api.movie.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -73,4 +78,38 @@ public class MovieService {
 
         movieGenreRepository.save(movieGenre);
     }
+
+
+    public MovieEntity getMovieById(Long id) {
+        return movieRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("영화를 찾을 수 없습니다. ID :" + id));
+    }
+
+    public double calculateVotePercentage(MovieEntity movie) {
+        return (movie.getVoteAverage() / 10) * 100;
+    }
+
+    public ResponseMessage<MovieDTO> getMovieDTOById(Long id) {
+        MovieEntity movie = getMovieById(id);
+        MovieDTO dto = new MovieDTO();
+        dto.setId(movie.getId());
+        dto.setTdbId(movie.getTmdbId());
+        dto.setTitle(movie.getTitle());
+        dto.setOverview(movie.getOverview());
+        dto.setPosterPath(movie.getPosterPath());
+        dto.setBackdropPath(movie.getBackdropPath());
+        dto.setVoteAverage(movie.getVoteAverage());
+        dto.setVotePercentage(calculateVotePercentage(movie));
+        dto.setVoteCount(movie.getVoteCount());
+        dto.setPopularity(movie.getPopularity());
+        dto.setOriginalLanguage(movie.getOriginalLanguage());
+        dto.setReleaseDate(movie.getReleaseDate());
+
+        return ResponseMessage.<MovieDTO>builder()
+                .statusCode(HttpStatus.OK)
+                .message("영화 상세정보 조회 성공")
+                .data(dto)
+                .build();
+    }
+
 }
