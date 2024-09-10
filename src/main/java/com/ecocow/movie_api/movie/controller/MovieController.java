@@ -10,12 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MovieController {
 
-
     private final MovieService movieService;
 
-    @PostMapping("/save/{movieId}")
-    public String saveMovie(@PathVariable int movieId) {
-//        movieService.saveMovie(movieId);
-        return "Movie saved successfully!";
+    @PostMapping("/save/popular-movies")
+    public String savePopularMovies() {
+        movieService.savePopularMovies();
+        return "Movies saved successfully!";
     }
 }
