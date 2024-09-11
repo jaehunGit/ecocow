@@ -85,10 +85,6 @@ public class MovieService {
                 .orElseThrow(() -> new MovieNotFoundException("영화를 찾을 수 없습니다. ID: " + id));
     }
 
-    public double calculateVotePercentage(MovieEntity movie) {
-        return (movie.getVoteAverage() / 10) * 100;
-    }
-
     public ResponseMessage<MovieDTO> getMovieDTOById(Long id) {
         MovieEntity movie = getMovieById(id);
         MovieDTO dto = new MovieDTO();
@@ -147,7 +143,6 @@ public class MovieService {
             }
             return genreComparison;
         });
-
 
         return recommendedMovies;
     }
