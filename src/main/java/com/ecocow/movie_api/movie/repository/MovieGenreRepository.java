@@ -8,5 +8,11 @@ import java.util.List;
 
 @Repository
 public interface MovieGenreRepository extends JpaRepository<MovieGenreEntity, Long> {
-    List<MovieGenreEntity> findByMovieId(Long tmdbId);
+
+    List<MovieGenreEntity> findByMovieId(Long movieId);
+
+    List<MovieGenreEntity> findByGenreIdIn(List<Long> genreIds);
+
+    // genre_id로 movie_id 조회
+    List<MovieGenreEntity> findByGenreId(Long genreId);
 }

@@ -8,12 +8,11 @@ import java.util.List;
 
 @Data
 public class MovieDTO {
+    @JsonProperty("id")
     private Long id;
+
     private String title;
     private String overview;
-
-    @JsonProperty("tdb_id")
-    private Long tdbId;
 
     @JsonProperty("release_date")
     private String releaseDate;
@@ -34,9 +33,6 @@ public class MovieDTO {
 
     @JsonProperty("original_language")
     private String originalLanguage;
-
-    @JsonProperty("vote_percentage")
-    private double votePercentage;
 
     @JsonProperty("genre_ids")
     private List<Integer> genreIds;

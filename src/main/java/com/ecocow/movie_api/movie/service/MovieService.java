@@ -1,5 +1,6 @@
 package com.ecocow.movie_api.movie.service;
 
+import com.ecocow.movie_api.common.response.MovieNotFoundException;
 import com.ecocow.movie_api.common.response.ResponseMessage;
 import com.ecocow.movie_api.movie.entity.MovieEntity;
 import com.ecocow.movie_api.movie.entity.MovieGenreEntity;
@@ -9,12 +10,12 @@ import com.ecocow.movie_api.movie.repository.MovieGenreRepository;
 import com.ecocow.movie_api.movie.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -35,8 +36,6 @@ public class MovieService {
             String url = TMDB_URL + "/movie/popular?page=" + page + "&api_key=" + apiKey;
             MovieDTOList movieDTOList = restTemplate.getForObject(url, MovieDTOList.class);
 
-            System.out.println(url);
-
             if (movieDTOList != null && movieDTOList.getResults() != null) {
                 for (MovieDTO movieDTO : movieDTOList.getResults()) {
                     if (currentSavedMovies >= totalMoviesToSave) {
@@ -52,7 +51,8 @@ public class MovieService {
 
     private void saveMovie(MovieDTO movieDTO) {
         MovieEntity movie = new MovieEntity();
-        movie.setTmdbId((long) movieDTO.getId());
+
+        movie.setId(movieDTO.getId());
         movie.setTitle(movieDTO.getTitle());
         movie.setOverview(movieDTO.getOverview());
         movie.setReleaseDate(movieDTO.getReleaseDate());
@@ -66,7 +66,7 @@ public class MovieService {
         movieRepository.save(movie);
 
         for (int genreId : movieDTO.getGenreIds()) {
-            saveMovieGenreRelation(movie.getTmdbId(), genreId);
+            saveMovieGenreRelation(movie.getId(), genreId);
         }
     }
 
@@ -82,7 +82,7 @@ public class MovieService {
 
     public MovieEntity getMovieById(Long id) {
         return movieRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("영화를 찾을 수 없습니다. ID :" + id));
+                .orElseThrow(() -> new MovieNotFoundException("영화를 찾을 수 없습니다. ID: " + id));
     }
 
     public double calculateVotePercentage(MovieEntity movie) {
@@ -93,13 +93,11 @@ public class MovieService {
         MovieEntity movie = getMovieById(id);
         MovieDTO dto = new MovieDTO();
         dto.setId(movie.getId());
-        dto.setTdbId(movie.getTmdbId());
         dto.setTitle(movie.getTitle());
         dto.setOverview(movie.getOverview());
         dto.setPosterPath(movie.getPosterPath());
         dto.setBackdropPath(movie.getBackdropPath());
         dto.setVoteAverage(movie.getVoteAverage());
-        dto.setVotePercentage(calculateVotePercentage(movie));
         dto.setVoteCount(movie.getVoteCount());
         dto.setPopularity(movie.getPopularity());
         dto.setOriginalLanguage(movie.getOriginalLanguage());
@@ -110,6 +108,48 @@ public class MovieService {
                 .message("영화 상세정보 조회 성공")
                 .data(dto)
                 .build();
+    }
+
+    @Cacheable("recommendedMovies")
+    public List<MovieEntity> recommendMoviesByGenre(Long movieId) {
+        List<MovieGenreEntity> movieGenres = movieGenreRepository.findByMovieId(movieId);
+
+        List<Long> genreIds = movieGenres.stream()
+                .map(MovieGenreEntity::getGenreId)
+                .toList();
+
+        Map<Long, Integer> movieGenreMatchCount = new HashMap<>();
+
+        List<MovieGenreEntity> moviesInSameGenres = movieGenreRepository.findByGenreIdIn(genreIds);
+
+        for (MovieGenreEntity movieGenre : moviesInSameGenres) {
+            Long otherMovieId = movieGenre.getMovieId();
+            if (!otherMovieId.equals(movieId)) {
+                movieGenreMatchCount.put(otherMovieId, movieGenreMatchCount.getOrDefault(otherMovieId, 0) + 1);
+            }
+        }
+
+        List<MovieEntity> recommendedMovies = new ArrayList<>();
+        for (Map.Entry<Long, Integer> entry : movieGenreMatchCount.entrySet()) {
+            Long recommendedMovieId = entry.getKey();
+            Integer matchingGenres = entry.getValue();
+            MovieEntity movie = movieRepository.findById(recommendedMovieId).orElse(null);
+            if (movie != null) {
+                movie.setMatchingGenres(matchingGenres);
+                recommendedMovies.add(movie);
+            }
+        }
+
+        recommendedMovies.sort((m1, m2) -> {
+            int genreComparison = Integer.compare(m2.getMatchingGenres(), m1.getMatchingGenres());
+            if (genreComparison == 0) {
+                return Float.compare(m2.getPopularity(), m1.getPopularity());
+            }
+            return genreComparison;
+        });
+
+
+        return recommendedMovies;
     }
 
 }

@@ -8,8 +8,8 @@ import javax.persistence.*;
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
 @AllArgsConstructor
 public class MovieEntity {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String title;
@@ -21,6 +21,7 @@ public class MovieEntity {
     private float popularity;
     private String originalLanguage;
     private String releaseDate;
-    private Long tmdbId;
 
+    @Transient
+    private Integer matchingGenres;
 }
