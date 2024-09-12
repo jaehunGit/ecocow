@@ -2,6 +2,7 @@ package com.ecocow.movie_api.movie.repository;
 
 import com.ecocow.movie_api.movie.entity.MovieGenreEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,6 +14,6 @@ public interface MovieGenreRepository extends JpaRepository<MovieGenreEntity, Lo
 
     List<MovieGenreEntity> findByGenreIdIn(List<Long> genreIds);
 
-    // genre_id로 movie_id 조회
-    List<MovieGenreEntity> findByGenreId(Long genreId);
+    @Query("SELECT DISTINCT m.genreId FROM movie_genre m")
+    List<Long> findDistinctGenreIds();
 }

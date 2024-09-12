@@ -29,6 +29,22 @@ public class MovieController {
         return "영화 정보 저장 성공!";
     }
 
+    @PostMapping("/update/movie")
+    @Operation(summary = "영화 영어정보를 한글로 업데이트", description = "Movie 테이블에 있는 전체 정보를 한글로 업데이트합니다.")
+    public String updateKorean() {
+        movieService.updateMoviesToKorean();
+
+        return "업데이트 성공";
+    }
+
+
+    @PostMapping("/save/genre/name")
+    @Operation(summary = "장르 ID를 통해 장르명을 저장", description = "Movie_genre 테이블에 있는 장르 ID를 통해 장르명을 저장합니다.")
+    public String saveGenreName() {
+        movieService.updateGenresFromTMDb();
+        return "장르명 저장 성공";
+    }
+
     @GetMapping("/movie/{id}")
     @Operation(summary = "영화 상세 조회", description = "영화 ID를 사용하여 영화 상세 정보를 조회합니다.")
     public ResponseEntity<ResponseMessage<MovieDTO>> getMovieById(@PathVariable("id") Long id) {

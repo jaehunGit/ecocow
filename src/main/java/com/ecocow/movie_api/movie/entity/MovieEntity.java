@@ -2,6 +2,8 @@ package com.ecocow.movie_api.movie.entity;
 
 import lombok.*;
 import javax.persistence.*;
+import java.util.List;
+
 @Entity(name = "movie")
 @Data
 @Builder
@@ -21,6 +23,9 @@ public class MovieEntity {
     private float popularity;
     private String originalLanguage;
     private String releaseDate;
+
+    @Transient
+    private List<String> genres;
 
     @Transient
     private Integer matchingGenres;

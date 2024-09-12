@@ -2,12 +2,10 @@ package com.ecocow.movie_api.movie.service;
 
 import com.ecocow.movie_api.common.response.MovieNotFoundException;
 import com.ecocow.movie_api.common.response.ResponseMessage;
+import com.ecocow.movie_api.movie.entity.GenreEntity;
 import com.ecocow.movie_api.movie.entity.MovieEntity;
 import com.ecocow.movie_api.movie.entity.MovieGenreEntity;
-import com.ecocow.movie_api.movie.repository.MovieDTO;
-import com.ecocow.movie_api.movie.repository.MovieDTOList;
-import com.ecocow.movie_api.movie.repository.MovieGenreRepository;
-import com.ecocow.movie_api.movie.repository.MovieRepository;
+import com.ecocow.movie_api.movie.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,24 +14,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MovieService {
     private final MovieRepository movieRepository;
     private final MovieGenreRepository movieGenreRepository;
+    private final GenreRepository genreRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${tmdb.api.key}")
     private String apiKey;
+    String TMDB_URL = "https://api.themoviedb.org/3";
     public void savePopularMovies() {
         int totalMoviesToSave = 100;
         int currentSavedMovies = 0;
         int page = 1;
 
         while (currentSavedMovies < totalMoviesToSave) {
-            String TMDB_URL = "https://api.themoviedb.org/3";
-            String url = TMDB_URL + "/movie/popular?page=" + page + "&api_key=" + apiKey;
+            String url = TMDB_URL + "/movie/popular?page=" + page + "&api_key=" + apiKey + "&language=ko-KR";
             MovieDTOList movieDTOList = restTemplate.getForObject(url, MovieDTOList.class);
 
             if (movieDTOList != null && movieDTOList.getResults() != null) {
@@ -99,6 +99,20 @@ public class MovieService {
         dto.setOriginalLanguage(movie.getOriginalLanguage());
         dto.setReleaseDate(movie.getReleaseDate());
 
+        List<Long> genreIds = movieGenreRepository.findByMovieId(movie.getId())
+                .stream()
+                .map(MovieGenreEntity::getGenreId)
+                .toList();
+
+        List<String> genreNames = genreIds.stream()
+                .map(genreId -> genreRepository.findById(genreId)
+                        .map(GenreEntity::getName)
+                        .orElse("Unknown"))
+                .collect(Collectors.toList());
+
+
+        dto.setGenres(genreNames);;
+
         return ResponseMessage.<MovieDTO>builder()
                 .statusCode(HttpStatus.OK)
                 .message("영화 상세정보 조회 성공")
@@ -132,6 +146,18 @@ public class MovieService {
             MovieEntity movie = movieRepository.findById(recommendedMovieId).orElse(null);
             if (movie != null) {
                 movie.setMatchingGenres(matchingGenres);
+
+                List<Long> movieGenreIds = movieGenreRepository.findByMovieId(recommendedMovieId)
+                        .stream().map(MovieGenreEntity::getGenreId).toList();
+
+                List<String> genreNames = movieGenreIds.stream()
+                        .map(genreId -> genreRepository.findById(genreId)
+                                .map(GenreEntity::getName)
+                                .orElse("Unknown"))
+                        .collect(Collectors.toList());
+
+                movie.setGenres(genreNames);
+
                 recommendedMovies.add(movie);
             }
         }
@@ -145,6 +171,46 @@ public class MovieService {
         });
 
         return recommendedMovies;
+    }
+
+    public void updateMoviesToKorean() {
+        List<MovieEntity> movies = movieRepository.findAll();
+
+        for (MovieEntity movie : movies) {
+            String url = TMDB_URL + "/movie/" + movie.getId() + "?api_key=" + apiKey + "&language=ko-KR";
+            MovieDTO movieDTO = restTemplate.getForObject(url, MovieDTO.class);
+
+            if (movieDTO != null) {
+                movie.setTitle(movieDTO.getTitle());
+                movie.setOverview(movieDTO.getOverview());
+                movie.setPosterPath(movieDTO.getPosterPath());
+                movie.setBackdropPath(movieDTO.getBackdropPath());
+                movie.setOriginalLanguage(movieDTO.getOriginalLanguage());
+                movieRepository.save(movie);
+            }
+        }
+    }
+
+    public void updateGenresFromTMDb() {
+        List<Long> genreIds = movieGenreRepository.findDistinctGenreIds();
+
+        for (Long genreId : genreIds) {
+            String url = "https://api.themoviedb.org/3/genre/" + genreId + "?api_key=" + apiKey + "&language=ko-KR";
+            GenreDTO genreDTO = restTemplate.getForObject(url, GenreDTO.class);
+
+            if (genreDTO != null) {
+                saveGenre(genreDTO.getId(), genreDTO.getName());
+            }
+        }
+    }
+
+    private void saveGenre(int genreId, String genreName) {
+        if (!genreRepository.existsById((long) genreId)) {
+            GenreEntity genreEntity = new GenreEntity();
+            genreEntity.setId((long) genreId);
+            genreEntity.setName(genreName);
+            genreRepository.save(genreEntity);
+        }
     }
 
 }
